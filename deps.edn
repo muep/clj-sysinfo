@@ -1,5 +1,8 @@
-{:paths ["src"]
+{:paths ["src" "classes"]
  :deps {org.clojure/clojure {:mvn/version "1.10.3"}
         http-kit/http-kit {:mvn/version "2.5.3"}
         metosin/reitit {:mvn/version "0.5.16"}
-        metosin/muuntaja {:mvn/version "0.6.8"}}}
+        metosin/muuntaja {:mvn/version "0.6.8"}}
+ :aliases {:uberdeps {:replace-deps {uberdeps/uberdeps {:mvn/version "1.1.2"}}
+                      :replace-paths []
+                      :main-opts ["-m" "uberdeps.uberjar"]}}}

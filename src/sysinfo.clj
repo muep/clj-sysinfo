@@ -2,7 +2,8 @@
   (:require [clojure.string :as str]
             [org.httpkit.server :as server]
             [reitit.ring :as ring]
-            [muuntaja.middleware :as muuntaja]))
+            [muuntaja.middleware :as muuntaja])
+  (:gen-class))
 
 (defn str->cpu-time [s]
   (/ (Integer/parseInt s) 100))

@@ -46,9 +46,17 @@
      {:middleware
       [muuntaja/wrap-format-response]}})))
 
-(defn run [{:keys [port]}]
-  (println "Entering org.httpkit.server/run-server")
-  (server/run-server app {:port port}))
+(defn run [{:keys [port thread]}]
+  (let [opts (cond-> {:port port}
+               thread (assoc :thread thread))]
+    (println "(org.httpkit.server/run-server app" opts ")")
+    (server/run-server app opts)))
+
+(defn env-int [name fback]
+  (if-let [v (System/getenv name)]
+    (Integer/parseInt v)
+    fback))
 
 (defn -main []
-  (run {:port 8081}))
+  (run {:port (env-int "LISTEN_PORT" 8080)
+        :thread (env-int "THREAD_COUNT" nil)}))

@@ -1,19 +1,54 @@
 (ns sysinfo
-  (:require [org.httpkit.server :as server]))
+  (:require [clojure.string :as str]
+            [org.httpkit.server :as server]
+            [reitit.ring :as ring]
+            [muuntaja.middleware :as muuntaja]))
 
-(defn get-info []
+(defn str->cpu-time [s]
+  (/ (Integer/parseInt s) 100))
+
+(defn str->ram-kib [s]
+  (* (Integer/parseInt s) 4))
+
+;; Stock slurp gets confused by something in the behavior of procfs,
+;; but opening a FileInputStream and slurping that seems to work ok.
+(defn slurp-proc [path]
+  (with-open [f (java.io.FileInputStream. path)]
+    (slurp f)))
+
+(defn proc-stat [proc]
+  (let [pieces (-> (slurp-proc (str "/proc/" proc "/stat"))
+                   (str/split #"\s+"))]
+    {:pid (-> pieces (get 0) Integer/parseInt)
+     :rss (-> pieces (get 23) str->ram-kib)
+     :user (-> pieces (get 13) str->cpu-time)
+     :sys (-> pieces (get 14) str->cpu-time)}))
+
+(defn sys-stat []
   (let [rt (Runtime/getRuntime)]
-    {:cpu-count (.availableProcessors rt)
-     :free-memory (.freeMemory rt)
-     :max-memory (.maxMemory rt)
-     :total-memory (.totalMemory rt)
-     :version (.toString (Runtime/version))}))
+    {:runtime
+     {:cpu-count (.availableProcessors rt)
+      :free-memory (.freeMemory rt)
+      :max-memory (.maxMemory rt)
+      :total-memory (.totalMemory rt)
+      :version (.toString (Runtime/version))}
+     :process (proc-stat "self")}))
 
-(defn app [req]
+(defn get-sys-stat [req]
   {:status 200
-   :headers {"Content-Type" "text/plain"}
-   :body (get-info)})
+   :body (sys-stat)})
 
-(defn -main [& args]
+(def app
+  (ring/ring-handler
+   (ring/router
+    [["/sys-stat" {:get get-sys-stat}]]
+    {:data
+     {:middleware
+      [muuntaja/wrap-format-response]}})))
+
+(defn run [{:keys [port]}]
   (println "Entering org.httpkit.server/run-server")
-  (server/run-server app {:port 8081}))
+  (server/run-server app {:port port}))
+
+(defn -main []
+  (run {:port 8081}))

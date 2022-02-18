@@ -1,0 +1,22 @@
+name: Clojure CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build Jar archive
+      run: ./build-jar.sh
+    - name: Archive the jar archive
+      uses: actions/upload-artifact@v2
+      with:
+        name: clj-sysinfo.jar
+        path: target/clj-sysinfo.jar

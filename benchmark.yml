@@ -1,0 +1,9 @@
+concurrency: 128
+base: 'http://localhost:8080'
+iterations: 4000
+rampup: 1
+
+plan:
+  - name: Fetch something
+    request:
+      url: '/sys-stat'

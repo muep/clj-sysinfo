@@ -1,8 +1,12 @@
 (ns sysinfo
   (:require [clojure.string :as str]
+            [clojure.data.json :as json]
             [org.httpkit.server :as server]
             [reitit.ring :as ring]
-            [muuntaja.middleware :as muuntaja])
+            [muuntaja.middleware :as muuntaja]
+            [hikari-cp.core :as hikari]
+            [clojure.java.jdbc :as jdbc])
+  (:import java.sql.SQLException)
   (:gen-class))
 
 (defn str->cpu-time [s]
@@ -66,19 +70,60 @@
   {:status 200
    :body (sys-stat)})
 
-(def app
+(defn get-sys-stat-id [{{:keys [id]} :path-params :keys [db]}]
+  (let [res (-> (jdbc/query db ["select id, stat_time::text, stat from stat where id = ?::integer;" id])
+                first
+                )]
+    {:status 200
+     :body (update res :stat (fn [s] (json/read-str s :key-fn keyword)))}))
+
+(defn put-sys-stat [{:keys [db]}]
+  (let [st (sys-stat)
+        res (jdbc/insert! db "stat" {:stat (json/write-str st)})]
+    {:status 200
+     :body res}))
+
+(defn wrap-db [db]
+  (fn [handler]
+    (fn [req]
+      (handler (assoc req :db db)))))
+
+(defn app [db]
   (ring/ring-handler
    (ring/router
-    [["/sys-stat" {:get get-sys-stat}]]
+    [["/sys-stat" {:get get-sys-stat
+                   :put put-sys-stat}]
+     ["/sys-stat/:id" {:get get-sys-stat-id}]]
     {:data
      {:middleware
-      [muuntaja/wrap-format-response]}})))
+      [(wrap-db db)
+       muuntaja/wrap-format-response]}})))
 
-(defn run [{:keys [port thread]}]
-  (let [opts (cond-> {:port port}
+;; Note: no support for all options. Only those that have been needed
+;; so far, and even these are processed in a pretty haphazard way.
+(defn libpq->jdbc [uri]
+  (let [[match username password hostname port dbname]
+        (re-find #"postgres://(?<username>\w+):(?<password>\w+)@(?<host>[\w.-]+):(?<port>\w+)/(?<database>\w+)"
+                 uri)]
+    (assert (not (nil? match)))
+    (str "jdbc:postgresql://" hostname "/" dbname "?user=" username "&password=" password)))
+
+(defn init-db [db]
+  (try
+    (jdbc/query db "select version from layout_version;")
+    (catch SQLException e
+      (jdbc/db-do-commands db
+                           ["create table stat(id serial unique not null, stat_time timestamp with time zone not null default now(), stat text not null);"
+                            "create table layout_version(version integer not null);"
+                            "insert into layout_version(version) values (1);"]))))
+
+(defn run [{:keys [db-url port thread]}]
+  (let [db {:datasource (hikari/make-datasource {:jdbc-url (libpq->jdbc db-url)})}
+        opts (cond-> {:port port}
                thread (assoc :thread thread))]
+    (init-db db)
     (println "(org.httpkit.server/run-server app" opts ")")
-    (server/run-server app opts)))
+    (server/run-server (app db) opts)))
 
 (defn env-int [name fback]
   (if-let [v (System/getenv name)]
@@ -86,5 +131,6 @@
     fback))
 
 (defn -main []
-  (run {:port (env-int "LISTEN_PORT" 8080)
+  (run {:db-url (System/getenv "DATABASE_URL")
+        :port (env-int "LISTEN_PORT" 8080)
         :thread (env-int "THREAD_COUNT" nil)}))

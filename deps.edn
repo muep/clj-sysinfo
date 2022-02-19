@@ -1,8 +1,12 @@
 {:paths ["src" "classes"]
  :deps {org.clojure/clojure {:mvn/version "1.10.3"}
+        org.clojure/data.json {:mvn/version "2.4.0"}
         http-kit/http-kit {:mvn/version "2.5.3"}
         metosin/reitit {:mvn/version "0.5.16"}
-        metosin/muuntaja {:mvn/version "0.6.8"}}
+        metosin/muuntaja {:mvn/version "0.6.8"}
+        org.clojure/java.jdbc {:mvn/version "0.7.12"}
+        org.postgresql/postgresql {:mvn/version "42.3.3"}
+        hikari-cp/hikari-cp {:mvn/version "2.13.0"}}
  :aliases {:uberdeps {:replace-deps {uberdeps/uberdeps {:mvn/version "1.1.2"}}
                       :replace-paths []
                       :main-opts ["-m" "uberdeps.uberjar"]}}}

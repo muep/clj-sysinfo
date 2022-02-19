@@ -17,6 +17,30 @@
   (with-open [f (java.io.FileInputStream. path)]
     (slurp f)))
 
+(defn pick-keys [m key-map]
+  (into {} (map (fn [[kout kin]] [kout (get m kin)]) key-map)))
+
+
+(defn proctbl->map [txt]
+  (as-> txt v
+    (str/split v #"\n")
+    (map (fn [row] (str/split row #":\s*")) v)
+    (into {} v)))
+
+
+(def meminfo-fields {:mem-total "MemTotal"
+                     :mem-free "MemFree"
+                     :mem-available "MemAvailable"
+                     :buffers "Buffers"
+                     :cached "Cached"
+                     :swap-total "SwapTotal"
+                     :swap-free "SwapFree"})
+
+(defn meminfo []
+  (-> (slurp-proc "/proc/meminfo")
+      proctbl->map
+      (pick-keys meminfo-fields)))
+
 (defn proc-stat [proc]
   (let [pieces (-> (slurp-proc (str "/proc/" proc "/stat"))
                    (str/split #"\s+"))]
@@ -25,15 +49,18 @@
      :user (-> pieces (get 13) str->cpu-time)
      :sys (-> pieces (get 14) str->cpu-time)}))
 
-(defn sys-stat []
+(defn runtime-stat []
   (let [rt (Runtime/getRuntime)]
-    {:runtime
-     {:cpu-count (.availableProcessors rt)
-      :free-memory (.freeMemory rt)
-      :max-memory (.maxMemory rt)
-      :total-memory (.totalMemory rt)
-      :version (.toString (Runtime/version))}
-     :process (proc-stat "self")}))
+    {:cpu-count (.availableProcessors rt)
+     :free-memory (.freeMemory rt)
+     :max-memory (.maxMemory rt)
+     :total-memory (.totalMemory rt)
+     :version (.toString (Runtime/version))}))
+
+(defn sys-stat []
+  {:meminfo (meminfo)
+   :process (proc-stat "self")
+   :runtime (runtime-stat)})
 
 (defn get-sys-stat [req]
   {:status 200

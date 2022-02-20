@@ -48,11 +48,14 @@
 
 (defn proc-stat [proc]
   (let [pieces (-> (slurp-proc (str "/proc/" proc "/stat"))
-                   (str/split #"\s+"))]
+                   (str/split #"\s+"))
+        user (-> pieces (get 13) str->cpu-time)
+        sys (-> pieces (get 14) str->cpu-time)]
     {:pid (-> pieces (get 0) Integer/parseInt)
      :rss (-> pieces (get 23) str->ram-kib)
-     :user (-> pieces (get 13) str->cpu-time)
-     :sys (-> pieces (get 14) str->cpu-time)}))
+     :user user
+     :sys sys
+     :time (+ user sys)}))
 
 (defn runtime-stat []
   (let [rt (Runtime/getRuntime)]

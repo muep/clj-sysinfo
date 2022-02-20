@@ -1,6 +1,7 @@
 (ns sysinfo
   (:require [clojure.string :as str]
             [clojure.data.json :as json]
+            [clojure.tools.logging :as log]
             [org.httpkit.server :as server]
             [reitit.ring :as ring]
             [muuntaja.middleware :as muuntaja]
@@ -122,7 +123,7 @@
         opts (cond-> {:port port}
                thread (assoc :thread thread))]
     (init-db db)
-    (println "(org.httpkit.server/run-server app" opts ")")
+    (log/info "(org.httpkit.server/run-server (app db)" opts ")")
     (server/run-server (app db) opts)))
 
 (defn env-int [name fback]

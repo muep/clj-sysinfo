@@ -92,12 +92,13 @@
     (fn [req]
       (handler (assoc req :db db)))))
 
-(defn app [db]
+(defn app [db file-path]
   (ring/ring-handler
    (ring/router
     [["/sys-stat" {:get get-sys-stat
                    :put put-sys-stat}]
-     ["/sys-stat/:id" {:get get-sys-stat-id}]]
+     ["/sys-stat/:id" {:get get-sys-stat-id}]
+     ["/files/*" (ring/create-file-handler {:root file-path})]]
     {:data
      {:middleware
       [(wrap-db db)
@@ -121,13 +122,13 @@
                             "create table layout_version(version integer not null);"
                             "insert into layout_version(version) values (1);"]))))
 
-(defn run [{:keys [db-url port thread]}]
+(defn run [{:keys [db-url file-path port thread]}]
   (let [db {:datasource (hikari/make-datasource {:jdbc-url (libpq->jdbc db-url)})}
         opts (cond-> {:port port}
                thread (assoc :thread thread))]
     (init-db db)
-    (log/info "(org.httpkit.server/run-server (app db)" opts ")")
-    (server/run-server (app db) opts)))
+    (log/info "(org.httpkit.server/run-server (app db" file-path ")" opts ")")
+    (server/run-server (app db file-path) opts)))
 
 (defn env-int [name fback]
   (if-let [v (System/getenv name)]
@@ -136,5 +137,6 @@
 
 (defn -main []
   (run {:db-url (System/getenv "DATABASE_URL")
+        :file-path (System/getenv "FILE_PATH")
         :port (env-int "LISTEN_PORT" 8080)
         :thread (env-int "THREAD_COUNT" nil)}))

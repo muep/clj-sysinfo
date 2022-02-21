@@ -7,7 +7,8 @@
             [muuntaja.middleware :as muuntaja]
             [hikari-cp.core :as hikari]
             [clojure.java.jdbc :as jdbc])
-  (:import java.sql.SQLException)
+  (:import java.sql.SQLException
+           (java.lang.management ManagementFactory GarbageCollectorMXBean))
   (:gen-class))
 
 (defn str->cpu-time [s]
@@ -32,6 +33,21 @@
     (map (fn [row] (str/split row #":\s*")) v)
     (into {} v)))
 
+
+(defn heap-stat []
+  (let [mxb (ManagementFactory/getMemoryMXBean)
+        heap-usage (.getHeapMemoryUsage mxb)
+        nonheap-usage (.getNonHeapMemoryUsage mxb)
+        pool (map (fn [b] {:name (.getName b)
+                           :usage (.getUsage b)}) (ManagementFactory/getMemoryPoolMXBeans))
+        gc (map (fn [^GarbageCollectorMXBean b]
+                  {:name (.getName b)
+                   :count (.getCollectionCount b)
+                   :time (.getCollectionTime b)}) (ManagementFactory/getGarbageCollectorMXBeans))]
+    {:gc gc
+     :heap-usage heap-usage
+     :nonheap-usage nonheap-usage
+     :pool pool}))
 
 (def meminfo-fields {:mem-total "MemTotal"
                      :mem-free "MemFree"
@@ -66,7 +82,8 @@
      :version (.toString (Runtime/version))}))
 
 (defn sys-stat []
-  {:meminfo (meminfo)
+  {:heap (heap-stat)
+   :meminfo (meminfo)
    :process (proc-stat "self")
    :runtime (runtime-stat)})
 

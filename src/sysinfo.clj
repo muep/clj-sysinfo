@@ -134,6 +134,21 @@
     {:status 200
      :body res}))
 
+(defn bytes->mib [b] (/ b 1048576.0))
+
+(defn get-sys-summary [_]
+  (let [st (sys-stat)
+        heap-size (-> st :heap :heap-usage :max bytes->mib)
+        heap-used (-> st :heap :heap-usage :used bytes->mib)]
+    {:status 200
+     :body {:pid (-> st :process :pid)
+            :nonheap-mib (-> st :heap :nonheap-usage :used bytes->mib)
+            :heap {:size-mib heap-size
+                   :used-mib heap-used
+                   :utilization (-> heap-used (* 100) (/ heap-size) Math/ceil)}
+            :time (-> st :process :time)
+            :rss (-> st :process :rss)}}))
+
 (defn wrap-db [db]
   (fn [handler]
     (fn [req]
@@ -142,7 +157,8 @@
 (defn app [db file-path]
   (ring/ring-handler
    (ring/router
-    [["/sys-stat" {:get get-sys-stat
+    [["/sys-summary" {:get get-sys-summary}]
+     ["/sys-stat" {:get get-sys-stat
                    :put put-sys-stat}]
      ["/sys-stat/:id" {:get get-sys-stat-id}]
      ["/files/*" (ring/create-file-handler {:root file-path})]]

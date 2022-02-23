@@ -45,7 +45,12 @@
    "G1 Old Gen"                       :g1-old-gen
    "G1 Survivor Space"                :g1-survivor-space
    "G1 Old Generation"                :g1-old-generation
-   "G1 Young Generation"              :g1-young-generation})
+   "G1 Young Generation"              :g1-young-generation
+   "Copy"                             :copy
+   "MarkSweepCompact"                 :mark-sweep-compact
+   "Tenured Gen"                      :tenured-gen
+   "Eden Space"                       :eden-space
+   "Survivor Space"                   :survivor-space})
 
 (defn pool-name [p]
   (get pool-names p p))

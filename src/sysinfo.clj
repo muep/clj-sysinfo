@@ -128,7 +128,9 @@
         (re-find #"postgres://(?<username>\w+):(?<password>\w+)@(?<host>[\w.-]+):(?<port>\w+)/(?<database>\w+)"
                  uri)]
     (assert (not (nil? match)))
-    (str "jdbc:postgresql://" hostname "/" dbname "?user=" username "&password=" password)))
+    (str "jdbc:postgresql://"
+         hostname ":" port "/" dbname
+         "?user=" username "&password=" password)))
 
 (defn init-db [db]
   (try

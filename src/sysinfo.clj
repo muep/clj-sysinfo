@@ -134,20 +134,21 @@
     {:status 200
      :body res}))
 
-(defn bytes->mib [b] (/ b 1048576.0))
+(defn bytes->kib [b] (Math/floor (/ b 1024)))
 
 (defn get-sys-summary [_]
   (let [st (sys-stat)
-        heap-size (-> st :heap :heap-usage :max bytes->mib)
-        heap-used (-> st :heap :heap-usage :used bytes->mib)]
+        heap-size (-> st :heap :heap-usage :max bytes->kib)
+        heap-used (-> st :heap :heap-usage :used bytes->kib)]
     {:status 200
-     :body {:pid (-> st :process :pid)
-            :nonheap-mib (-> st :heap :nonheap-usage :used bytes->mib)
-            :heap {:size-mib heap-size
-                   :used-mib heap-used
-                   :utilization (-> heap-used (* 100) (/ heap-size) Math/ceil)}
-            :time (-> st :process :time)
-            :rss (-> st :process :rss)}}))
+     :body {:process-id (-> st :process :pid)
+            :jvm-nonheap-kib (-> st :heap :nonheap-usage :used bytes->kib)
+            :jvm-heap {:size-kib heap-size
+                       :used-kib heap-used
+                       :utilization (-> heap-used (* 100) (/ heap-size) Math/ceil)}
+            :cpu-seconds (-> st :process :time)
+            :linux-mem-available (-> st :meminfo :mem-available)
+            :process-rss-kib (-> st :process :rss)}}))
 
 (defn wrap-db [db]
   (fn [handler]

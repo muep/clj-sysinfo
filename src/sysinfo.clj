@@ -8,7 +8,9 @@
             [hikari-cp.core :as hikari]
             [clojure.java.jdbc :as jdbc])
   (:import java.sql.SQLException
-           (java.lang.management ManagementFactory GarbageCollectorMXBean))
+           (java.lang.management GarbageCollectorMXBean
+                                 ManagementFactory
+                                 MemoryUsage))
   (:gen-class))
 
 (defn str->cpu-time [s]
@@ -33,17 +35,40 @@
     (map (fn [row] (str/split row #":\s*")) v)
     (into {} v)))
 
+(def pool-names
+  {"CodeHeap 'non-profiled nmethods'" :codeheap-non-profiled-nmethods
+   "CodeHeap 'profiled nmethods'"     :codeheap-profiled-nmethods
+   "CodeHeap 'non-nmethods'"          :codeheap-non-nmethods
+   "Metaspace"                        :metaspace
+   "Compressed Class Space"           :compressed-class-space
+   "G1 Eden Space"                    :g1-eden-space
+   "G1 Old Gen"                       :g1-old-gen
+   "G1 Survivor Space"                :g1-survivor-space
+   "G1 Old Generation"                :g1-old-generation
+   "G1 Young Generation"              :g1-young-generation})
+
+(defn pool-name [p]
+  (get pool-names p p))
+
+(defn memory-usage->map [^MemoryUsage x]
+  {:init (.getInit x)
+   :used (.getUsed x)
+   :committed (.getCommitted x)
+   :max (.getMax x)})
 
 (defn heap-stat []
   (let [mxb (ManagementFactory/getMemoryMXBean)
-        heap-usage (.getHeapMemoryUsage mxb)
-        nonheap-usage (.getNonHeapMemoryUsage mxb)
-        pool (map (fn [b] {:name (.getName b)
-                           :usage (.getUsage b)}) (ManagementFactory/getMemoryPoolMXBeans))
-        gc (map (fn [^GarbageCollectorMXBean b]
-                  {:name (.getName b)
-                   :count (.getCollectionCount b)
-                   :time (.getCollectionTime b)}) (ManagementFactory/getGarbageCollectorMXBeans))]
+        heap-usage (-> mxb .getHeapMemoryUsage memory-usage->map)
+        nonheap-usage (-> mxb .getNonHeapMemoryUsage memory-usage->map)
+        pool (into {}
+                   (map (fn [b] [(-> b .getName  pool-name)
+                                 (-> b .getUsage memory-usage->map)])
+                        (ManagementFactory/getMemoryPoolMXBeans)))
+        gc (into {} (map (fn [^GarbageCollectorMXBean b]
+                           [(-> b .getName pool-name)
+                            {:count (.getCollectionCount b)
+                             :time (.getCollectionTime b)}])
+                         (ManagementFactory/getGarbageCollectorMXBeans)))]
     {:gc gc
      :heap-usage heap-usage
      :nonheap-usage nonheap-usage

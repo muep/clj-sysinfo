@@ -188,11 +188,17 @@
                             "create table layout_version(version integer not null);"
                             "insert into layout_version(version) values (1);"]))))
 
+(defn get-db [db-url]
+  (when db-url
+    (let [ds-options {:jdbc-url (libpq->jdbc db-url)}
+          db {:datasource (hikari/make-datasource ds-options)}]
+      (init-db db)
+      db)))
+
 (defn run [{:keys [db-url file-path port thread]}]
-  (let [db {:datasource (hikari/make-datasource {:jdbc-url (libpq->jdbc db-url)})}
+  (let [db (get-db db-url)
         opts (cond-> {:port port}
                thread (assoc :thread thread))]
-    (init-db db)
     (log/info "(org.httpkit.server/run-server (app db" file-path ")" opts ")")
     (server/run-server (app db file-path) opts)))
 
